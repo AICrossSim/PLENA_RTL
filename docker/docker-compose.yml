@@ -1,0 +1,79 @@
+# PLENA RTL Docker Compose configuration
+#
+# Usage (from repo root):
+#   Build:        docker compose -f docker/docker-compose.yml build dev
+#   Enter shell:  docker compose -f docker/docker-compose.yml run --rm dev bash
+#   Run a recipe: docker compose -f docker/docker-compose.yml run --rm dev just test-hw
+#
+# Or use the just wrappers:
+#   just docker-build      # build the dev image
+#   just docker-dev        # build (if needed) + drop into a shell
+#   just docker-run <cmd>  # run an arbitrary command in the dev image
+#   just docker-test <recipe> [args...]   # run a just recipe in the dev image
+#
+# GPU (CUDA torch):   docker compose -f docker/docker-compose.yml --profile cuda run --rm dev-cuda bash
+# Nix parity image:   docker compose -f docker/docker-compose.yml --profile nix  build dev-nix
+
+services:
+  # Default development environment (Ubuntu, no Nix, CPU torch).
+  dev:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: dev
+    image: plena-rtl:dev
+    container_name: plena-rtl-dev
+    volumes:
+      # Live-mount the source for editing on the host.
+      - ..:/workspace
+      # Persist the venv and ccache so rebuilds are fast across runs.
+      - venv-cache:/workspace/.venv
+      - ccache:/root/.cache/ccache
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+
+  # GPU-enabled variant: rebuilds with CUDA torch and exposes NVIDIA devices.
+  # Requires nvidia-container-toolkit on the host.
+  dev-cuda:
+    extends:
+      service: dev
+    image: plena-rtl:dev-cuda
+    container_name: plena-rtl-dev-cuda
+    profiles:
+      - cuda
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # Nix-parity image (wraps flake.nix). Opt-in via the `nix` profile.
+  dev-nix:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.nix
+      target: dev
+    image: plena-rtl:dev-nix
+    container_name: plena-rtl-dev-nix
+    profiles:
+      - nix
+    volumes:
+      - ..:/workspace
+      - nix-store:/nix
+      - venv-cache-nix:/workspace/.venv
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+
+volumes:
+  venv-cache:
+    name: plena-rtl-venv
+  ccache:
+    name: plena-rtl-ccache
+  nix-store:
+    name: plena-rtl-nix-store
+  venv-cache-nix:
+    name: plena-rtl-venv-nix

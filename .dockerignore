@@ -1,0 +1,56 @@
+# Keep .git and .gitmodules so submodules can be initialized inside the build.
+
+# Python / virtualenv
+.venv
+**/.venv
+.direnv
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.eggs
+.pytest_cache
+
+# Nix build outputs
+result
+result-*
+
+# Build / simulation artifacts
+build/
+build_output/
+temp/
+*.vcd
+results.xml
+*.log
+*.rpt
+*.svf
+*.jou
+*.str
+
+# Synopsys / EDA outputs (not used in Docker)
+tools/synopsys/analyzed/
+tools/synopsys/outputs/
+tools/alib-52/
+.Xil
+
+# Model / data blobs
+*.pt
+*.pth
+*.bin
+*.mem
+ckpts_*
+
+# Docker (prevent recursive copy)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# IDE / OS
+.vscode
+.idea
+*.swp
+*~
+.DS_Store
+.claude
+.codex

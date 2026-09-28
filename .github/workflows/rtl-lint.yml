@@ -1,0 +1,40 @@
+name: RTL Lint
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    name: Verilator Lint Check
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Verilator
+        uses: veryl-lang/setup-verilator@v1
+        with:
+          verilator-version: v5.034
+
+      - name: Verify Verilator
+        run: verilator --version
+
+      - name: Run RTL Lint
+        run: |
+          python3 tools/rtl_lint.py --ci 2>&1 | tee lint-report.txt
+          EXIT_CODE=${PIPESTATUS[0]}
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "::error::RTL lint found warnings — see lint-report.txt artifact"
+            exit 1
+          fi
+
+      - name: Upload lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          path: lint-report.txt
+          retention-days: 30

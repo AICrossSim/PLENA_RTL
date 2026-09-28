@@ -1,0 +1,60 @@
+# Environments / editors
+.venv
+**/.venv
+.direnv
+.vscode
+.claude
+.codex
+.DS_Store
+**/.DS_Store
+
+# Python
+__pycache__/
+*.egg-info
+.pytest_cache
+
+# Build / simulation outputs
+build/
+build_output/
+*.log
+*.rpt
+*.vcd
+*.fst
+*.gtkw
+results.xml
+temp/
+*.out
+*.nfs*
+.nfs*
+
+# Generated workload / memory artefacts
+*.mem
+*.asm
+*.bin
+*.pt
+*.pth
+*.db
+*.db-journal
+*.ipynb
+*.message
+ckpts_*
+
+# Synopsys
+tools/synopsys/analyzed/
+tools/synopsys/outputs/
+tools/synopsys/moduleparamid
+tools/alib-52/
+src/basic_components/synopsis/
+*.svf
+*.str
+*.jou
+*.dcp
+
+# Vivado
+src/fpga/**/vivado_proj/
+*.bit
+*.ltx
+clockInfo.txt
+tight_setup_hold_pins.txt
+.Xil/
+vivado*.backup.*
