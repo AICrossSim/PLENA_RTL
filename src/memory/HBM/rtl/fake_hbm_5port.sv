@@ -65,8 +65,12 @@ localparam int INSTR_MASK_WIDTH = INSTR_BYTES;
 // ============================================================================
 logic [7:0] mem [0:MEM_SIZE_BYTES-1];
 
-// Track highest written address for result dump
+// Track highest written address for the result dump. The runtime tracker is
+// driven only by the always_ff below; the image loaded at time 0 is tracked in
+// a separate variable written only by the initial block (keeps each variable
+// single-driven for lint), and the dump takes the max of the two.
 int max_written_addr;
+int init_max_written_addr;
 
 // Internal link declarations
 `TL_DECLARE(ELE_DATA_WIDTH, ADDR_WIDTH, SourceWidth, SinkWidth, m_element_link);
@@ -140,11 +144,22 @@ generate
     end
 endgenerate
 
+// Track the highest byte address written through ANY port, in a single
+// always block: several ports can write in the same cycle, and one driver
+// per signal keeps this lint-clean (MULTIDRIVEN) and deterministic.
 always_ff @(posedge clk) begin
-    if (m_ele_bram_en && m_ele_bram_we) begin
-        if (m_ele_byte_addr + ELE_BYTES - 1 > max_written_addr)
-            max_written_addr <= m_ele_byte_addr + ELE_BYTES - 1;
-    end
+    automatic int hi = rst ? 0 : max_written_addr;
+    if (m_ele_bram_en && m_ele_bram_we && int'(m_ele_byte_addr) + ELE_BYTES - 1 > hi)
+        hi = int'(m_ele_byte_addr) + ELE_BYTES - 1;
+    if (m_scale_bram_en && m_scale_bram_we && int'(m_scale_byte_addr) + SCALE_BYTES - 1 > hi)
+        hi = int'(m_scale_byte_addr) + SCALE_BYTES - 1;
+    if (v_ele_bram_en && v_ele_bram_we && int'(v_ele_byte_addr) + ELE_BYTES - 1 > hi)
+        hi = int'(v_ele_byte_addr) + ELE_BYTES - 1;
+    if (v_scale_bram_en && v_scale_bram_we && int'(v_scale_byte_addr) + SCALE_BYTES - 1 > hi)
+        hi = int'(v_scale_byte_addr) + SCALE_BYTES - 1;
+    if (instr_bram_en && instr_bram_we && int'(instr_byte_addr) + INSTR_BYTES - 1 > hi)
+        hi = int'(instr_byte_addr) + INSTR_BYTES - 1;
+    max_written_addr <= hi;
 end
 
 // ============================================================================
@@ -197,12 +212,6 @@ generate
     end
 endgenerate
 
-always_ff @(posedge clk) begin
-    if (m_scale_bram_en && m_scale_bram_we) begin
-        if (m_scale_byte_addr + SCALE_BYTES - 1 > max_written_addr)
-            max_written_addr <= m_scale_byte_addr + SCALE_BYTES - 1;
-    end
-end
 
 // ============================================================================
 // V Element Port (ELE_DATA_WIDTH-bit access)
@@ -254,12 +263,6 @@ generate
     end
 endgenerate
 
-always_ff @(posedge clk) begin
-    if (v_ele_bram_en && v_ele_bram_we) begin
-        if (v_ele_byte_addr + ELE_BYTES - 1 > max_written_addr)
-            max_written_addr <= v_ele_byte_addr + ELE_BYTES - 1;
-    end
-end
 
 // ============================================================================
 // V Scale Port (SCALE_DATA_WIDTH-bit access)
@@ -311,12 +314,6 @@ generate
     end
 endgenerate
 
-always_ff @(posedge clk) begin
-    if (v_scale_bram_en && v_scale_bram_we) begin
-        if (v_scale_byte_addr + SCALE_BYTES - 1 > max_written_addr)
-            max_written_addr <= v_scale_byte_addr + SCALE_BYTES - 1;
-    end
-end
 
 // ============================================================================
 // Instruction Port (INSTR_DATA_WIDTH-bit access)
@@ -368,12 +365,6 @@ generate
     end
 endgenerate
 
-always_ff @(posedge clk) begin
-    if (instr_bram_en && instr_bram_we) begin
-        if (instr_byte_addr + INSTR_BYTES - 1 > max_written_addr)
-            max_written_addr <= instr_byte_addr + INSTR_BYTES - 1;
-    end
-end
 
 // ============================================================================
 // Memory Initialization
@@ -392,7 +383,7 @@ initial begin
     logic [255:0] row_data;
 
     // Initialize memory to zero
-    max_written_addr = 0;
+    init_max_written_addr = 0;
     for (init_i = 0; init_i < MEM_SIZE_BYTES; init_i++) begin
         mem[init_i] = '0;
     end
@@ -435,8 +426,8 @@ initial begin
                             end
                         end
 
-                        if (base_byte_addr + 31 > max_written_addr)
-                            max_written_addr = base_byte_addr + 31;
+                        if (base_byte_addr + 31 > init_max_written_addr)
+                            init_max_written_addr = base_byte_addr + 31;
 
                         line_num++;
                     end
@@ -468,7 +459,8 @@ final begin
     if (ResultFile != "") begin
         fd = $fopen(ResultFile, "w");
         if (fd) begin
-            num_rows = (max_written_addr + 32) / 32;  // Round up to full rows
+            num_rows = ((max_written_addr > init_max_written_addr ? max_written_addr
+                                                                  : init_max_written_addr) + 32) / 32;  // Round up to full rows
             $display("Writing HBM result to: %s (%0d rows)", ResultFile, num_rows);
 
             for (row = 0; row < num_rows; row++) begin
