@@ -100,3 +100,19 @@ docker compose -f docker/docker-compose.yml --profile nix run --rm dev-nix bash
 `just synth …` (Synopsys Design Compiler) depends on a licensed toolchain
 mounted from `/mnt/applications/...` on the host and is intentionally out of
 scope. Run synthesis natively.
+
+## Podman instead of Docker
+
+The `just docker-*` recipes call `docker compose`. On hosts where `docker` is the
+podman shim and no compose provider is installed, build and run the image
+directly (this is what was used to validate the image):
+
+```bash
+podman build --target dev -f docker/Dockerfile -t plena-rtl:dev .
+podman run --rm -it -v "$PWD":/workspace -v plena-rtl-venv:/workspace/.venv \
+    -v plena-rtl-ccache:/root/.cache/ccache -w /workspace plena-rtl:dev just rtl-sim linear
+```
+
+Native and container runs may share the same checkout; the cocotb runner drops
+stale `*.d` dependency files from a cached build directory before rebuilding, so
+alternating between the two does not break the Verilator make step.

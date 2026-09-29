@@ -82,6 +82,16 @@ def _single_test(
     runner = get_runner(getenv("SIM", sim))
 
     if not skip_build:
+        # A cached build dir may hold g++ dependency files (*.d) from another
+        # environment (e.g. a native build reused inside the Docker image, or
+        # vice versa) whose absolute paths no longer exist; make then fails with
+        # "No rule to make target .../cocotb/share/lib/verilator/verilator.cpp".
+        # Verilator regenerates every C++ file on a rebuild anyway, so drop them.
+        for stale in Path(test_work_dir).glob("*.d"):
+            try:
+                stale.unlink()
+            except OSError:
+                pass
         if sim == "verilator":
             tool_args = _verilator_args(hierarchical, trace)
             sources = [module_path]
