@@ -41,7 +41,7 @@ src/
                     systolic PEs. Each block dir has rtl/ and (usually) test/<module>_tb.py
   system/rtl/       SimTop.sv (plena + fake_hbm_5port) — the top every rtl-sim/rtl-suite run builds
   system/test/      SimTop_tb.py (canonical), SimTop_suite_tb.py (one build, many cases), test_platform.py
-  fpga/, system/rtl/SimTopA7*.sv, SimTopDDR.sv   FPGA bring-up path (not run by any just recipe)
+  fpga/, system/rtl/SimTopA7*.sv, SimTopDDR.sv   FPGA bring-up RTL (lint-only; no testbenches shipped)
 tools/
   cfl_cocotb/       veri_runner(): builds with Verilator and runs a cocotb module; _verilator_args() holds the flags
   cfl_tools/        PROJECT_PATH / SRC_PATH constants, logger, pdb excepthook

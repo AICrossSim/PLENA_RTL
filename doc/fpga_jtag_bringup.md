@@ -99,39 +99,22 @@ DDR3 empty
   → (JTAG) DEBUG_CTRL/ADDR + read DEBUG_Dk → VSRAM rows back to host
 ```
 
-`PlenaDriver` (`src/system/test/plena_driver.py`) implements this over an abstract transport; the cocotb
-`JtagBscanTransport` drives it in sim and the pyftdi `JtagAxiTransport` drives it on the board — **same
-sequence, same DR protocol**, so a passing sim runs unchanged on hardware.
+The host driver that implemented this sequence over an abstract transport (cocotb BSCAN in
+simulation, pyftdi on the board) is not included in this release; see §5.
 
 ---
 
-## 5. Simulation testbenches (all pass, Verilator + cocotb)
+## 5. Simulation testbenches
 
-| Testbench | What it proves |
-|-----------|----------------|
-| `src/system/test/SimTopDDR_tb.py` | The FPGA HBM datapath (mux fix + `tl_to_axi4` + `fake_ddr3`) is **data-correct** (activation path bit-identical to fake_hbm). |
-| `src/system/test/SimTopA7_tb.py` | Activation over a raw AXI-lite port: calib → IMEM load → SOFT_RST → `system_break`. |
-| `src/fpga/common/test/jtag_axi_bscan_tb.py` | The BSCAN DR-scan protocol, the tck↔aclk CDC, the pipelined response/flush, the AXI-lite handshake. |
-| `src/system/test/SimTopA7_jtag_tb.py` | The **unchanged PlenaDriver** activates the core over the BSCAN JTAG path, end to end. |
-| `src/system/test/ddr3_loader_tb.py` | JTAG→DDR3 write + read-back **bit-exact** through the loader + bridge + `fake_ddr3`. |
-| `src/system/test/SimTopA7_jtag_dbg_tb.py` | **Full loop**: empty DDR3 → load DDR3 over JTAG → load IMEM over JTAG → launch → run → read 16 VSRAM rows over JTAG == the RTL's own `$finish` dump, bit-exact. |
-
-### Running them
-```bash
-cd PLENA_RTL && source .venv/bin/activate
-# datapath / activation (each builds the full core, ~6 min):
-python src/system/test/SimTopDDR_tb.py    --workload-dir <build_dir>
-python src/system/test/SimTopA7_tb.py     --workload-dir <build_dir>
-python src/system/test/SimTopA7_jtag_tb.py --workload-dir <build_dir>
-# JTAG BSCAN unit test (small, ~1 min):
-python src/fpga/common/test/jtag_axi_bscan_tb.py
-# full loop (regenerate a workload first; SimTopA7_jtag_dbg_tb.run_with_workload does the compare):
-python src/system/test/SimTopA7_jtag_dbg_tb.py --workload-dir <build_dir>
-```
-(Workloads come from `python -m tools.testworkloads.linear --build-dir <dir> --batch 16 --in-features 32
---out-features 32`; the tbs read `INSTRUCTION_STORAGE_OFFSET` from `configuration.svh`. Note that every
-workload generator rewrites `INSTRUCTION_STORAGE_OFFSET` in `src/definitions/configuration.svh` to match the
-generated program; that change is a build artefact and should not be committed.)
+The cocotb testbenches that validated this path (`SimTopDDR_tb.py`, `SimTopA7_tb.py`,
+`SimTopA7_jtag_tb.py`, `ddr3_loader_tb.py`, `SimTopA7_jtag_dbg_tb.py`,
+`src/fpga/common/test/jtag_axi_bscan_tb.py`) and the host-side driver stack
+(`plena_driver.py`, `jtag_bscan_transport.py`, `jtag_axi_transport.py`, `cocotb_axil_bfm.py`)
+are **not part of this release**; they were removed from the tree in the initial open-source
+commit because they are not maintained by any `just` recipe. The RTL they exercised (§6) is
+still shipped and lint-clean. Note that every workload generator rewrites
+`INSTRUCTION_STORAGE_OFFSET` in `src/definitions/configuration.svh` to match the generated
+program; that change is a build artefact and should not be committed.
 
 ---
 
@@ -149,12 +132,8 @@ generated program; that change is a build artefact and should not be committed.)
   `*_dbg` sim tops for VSRAM readback.
 
 ### Host driver + tests
-- `src/system/test/plena_driver.py` — transport-agnostic `PlenaDriver` (wait_calib / load_ddr3 /
-  load_program / launch / wait_done / read_vsram_row / read_ddr3_beat).
-- `src/system/test/jtag_bscan_transport.py` — cocotb JTAG transport.
-- `src/system/test/jtag_axi_transport.py` — **pyftdi host transport** (real hardware; see §7).
-- `src/system/test/cocotb_axil_bfm.py` — cocotb AXI-lite BFM (raw-port activation).
-- the `*_tb.py` in §5.
+
+Removed from this release (see §5).
 
 ### Board top
 - `src/fpga/nexys_video/plena_a7_top.sv` — the board top: mux fix + BSCANE2/`jtag_axi_bscan` +
